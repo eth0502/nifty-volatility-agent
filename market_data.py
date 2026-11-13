@@ -7,81 +7,52 @@ from zoneinfo import ZoneInfo
 NSE_URL = "https://www.nseindia.com/api/allIndices"
 
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Referer": "https://www.nseindia.com/",
-    "Accept-Language": "en-US,en;q=0.9",
 }
 
 
 def fetch_market_data():
-    session = requests.Session()
-    session.headers.update(HEADERS)
+    response = requests.get(
+        NSE_URL,
+        headers=HEADERS,
+        timeout=20
+    )
+    response.raise_for_status()
 
-    try:
-        response = session.get(NSE_URL, timeout=20)
-
-        if response.status_code == 403:
-            raise RuntimeError(
-                "NSE blocked GitHub Actions server (HTTP 403). "
-                "A different verified data source is required."
-            )
-
-        response.raise_for_status()
-        data = response.json()
-
-    except requests.RequestException as error:
-        raise RuntimeError(f"NSE request failed: {error}") from error
-
-    indices = data.get("data", [])
+    indices = response.json().get("data", [])
 
     nifty = next(
-        (item for item in indices if item.get("index") == "NIFTY 50"),
+        (x for x in indices if x.get("index") == "NIFTY 50"),
         None
     )
 
     vix = next(
-        (item for item in indices if item.get("index") == "INDIA VIX"),
+        (x for x in indices if x.get("index") == "INDIA VIX"),
         None
     )
 
-    if nifty is None or vix is None:
-        raise ValueError("Nifty 50 or India VIX missing in NSE response")
-
-    print("RAW NIFTY DATA:")
-    print(json.dumps(nifty, indent=2))
-
-    print("RAW INDIA VIX DATA:")
-    print(json.dumps(vix, indent=2))
+    if not nifty or not vix:
+        raise ValueError("Nifty 50 or India VIX missing")
 
     nifty_close = float(nifty["previousClose"])
-    india_vix = float(vix["last"])
+    vix_live = float(vix["last"])
+    vix_previous_day = float(vix["previousDayVal"])
 
-    if nifty_close <= 0 or india_vix <= 0:
-        raise ValueError("Invalid market values")
-
-    quote_timestamp = (
-        vix.get("time")
-        or vix.get("lastUpdateTime")
-        or vix.get("timestamp")
-    )
+    if min(nifty_close, vix_live, vix_previous_day) <= 0:
+        raise ValueError("Invalid market data")
 
     return {
         "nifty_previous_close": nifty_close,
-        "india_vix": india_vix,
-        "vix_quote_timestamp": quote_timestamp,
+        "india_vix_latest": vix_live,
+        "india_vix_previous_day_reference": vix_previous_day,
         "source": "NSE India",
         "fetched_at": datetime.now(
             ZoneInfo("Asia/Kolkata")
-        ).isoformat(),
-        "verified_live": False
+        ).isoformat()
     }
 
 
 if __name__ == "__main__":
-    result = fetch_market_data()
-    print(json.dumps(result, indent=2))
+    print(json.dumps(fetch_market_data(), indent=2))
