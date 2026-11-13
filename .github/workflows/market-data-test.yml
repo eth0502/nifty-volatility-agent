@@ -1,0 +1,25 @@
+
+name: NSE Market Data Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  market-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Fetch NSE Data
+        run: python market_data.py
+        
