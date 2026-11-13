@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -27,9 +27,9 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Show test files
+      - name: List test files
         run: |
-          find . -name "test_*.py" -o -name "*_test.py"
+          find . -type f -name "test_*.py"
 
       - name: Run all tests
         run: |
