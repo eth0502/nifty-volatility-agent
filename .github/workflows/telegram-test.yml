@@ -1,3 +1,4 @@
+
 name: Telegram Connection Test
 
 on:
@@ -17,18 +18,20 @@ jobs:
           import os
           import json
           import urllib.request
+          import urllib.error
 
-          token = os.environ["BOT_TOKEN"]
-          chat_id = os.environ["CHAT_ID"]
+          token = os.environ.get("BOT_TOKEN", "").strip()
+          chat_id = os.environ.get("CHAT_ID", "").strip()
 
           if not token or not chat_id:
-              raise SystemExit("Missing Telegram secrets")
+              raise SystemExit("ERROR: Missing Telegram secrets")
 
           url = f"https://api.telegram.org/bot{token}/sendMessage"
+
           data = json.dumps({
               "chat_id": chat_id,
               "text": "✅ Nifty Volatility Agent: Telegram connection successful!"
-          }).encode()
+          }).encode("utf-8")
 
           request = urllib.request.Request(
               url,
@@ -36,11 +39,20 @@ jobs:
               headers={"Content-Type": "application/json"}
           )
 
-          with urllib.request.urlopen(request, timeout=20) as response:
-              result = json.loads(response.read())
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  result = json.loads(response.read().decode("utf-8"))
 
-          if not result.get("ok"):
-              raise SystemExit("Telegram message failed")
+              if not result.get("ok"):
+                  raise SystemExit("ERROR: Telegram API rejected the message")
 
-          print("Telegram message sent successfully")
+              print("SUCCESS: Telegram message sent!")
+
+          except urllib.error.HTTPError as error:
+              print("Telegram API HTTP error:", error.code)
+              raise SystemExit(1)
+
+          except Exception as error:
+              print("Telegram connection error:", str(error))
+              raise SystemExit(1)
           PY
